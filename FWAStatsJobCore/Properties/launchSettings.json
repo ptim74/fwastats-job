@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "FWAStatsJobCore": {
+      "commandName": "Project",
+      "commandLineArgs": "-url http://localhost/fwastats"
+    }
+  }
+}
