@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NLog;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -12,7 +13,11 @@ namespace FWAStatsJobCore
 {
     public class Program
     {
+        public static Logger logger = new LogFactory().GetLogger("Program");
+
         public static string FWAStatsURL { get; set; }
+
+        public static int ThreadCount { get; set; } = Environment.ProcessorCount;
 
         private static Dictionary<Type, DataContractJsonSerializer> serializers = new Dictionary<Type, DataContractJsonSerializer>();
 
@@ -57,7 +62,7 @@ namespace FWAStatsJobCore
             int indexFailures = 0;
             while (indexFound == false && indexFailures < 5)
             {
-                Log(string.Format("Update clans started, connecting to {0}", FWAStatsURL));
+                logger.Info("Update clans started, connecting to {0}", FWAStatsURL);
                 try
                 {
                     var data = Request("");
@@ -66,7 +71,7 @@ namespace FWAStatsJobCore
                 catch (Exception e)
                 {
                     indexFailures++;
-                    Log(e.Message);
+                    logger.Error(e.ToString);
                 }
             }
 
@@ -76,7 +81,7 @@ namespace FWAStatsJobCore
             {
                 foreach (var e in index.errors)
                 {
-                    Log(e);
+                    logger.Error(e);
                 }
 
                 var queue = new BlockingCollection<UpdateTask>();
@@ -88,12 +93,12 @@ namespace FWAStatsJobCore
                 }
                 queue.CompleteAdding();
 
-                var taskCount = Environment.ProcessorCount;
+                var taskCount = ThreadCount;
 
                 if (ServicePointManager.DefaultConnectionLimit < taskCount)
                     ServicePointManager.DefaultConnectionLimit = taskCount;
 
-                Log(string.Format("Processing {0} clans with {1} threads", index.tasks.Count, taskCount));
+                logger.Info("Processing {0} clans with {1} threads", index.tasks.Count, taskCount);
 
                 var tasks = new List<Task<int>>();
                 for (var i = 0; i < taskCount; i++)
@@ -111,7 +116,7 @@ namespace FWAStatsJobCore
 
                 if (failQueue.Count > 0)
                 {
-                    Log(string.Format("Retrying {0} failed updates", failQueue.Count));
+                    logger.Info("Retrying {0} failed updates", failQueue.Count);
                     failures += PerformClanUpdate(failQueue); //Cleanup in main thread
                 }
 
@@ -121,24 +126,24 @@ namespace FWAStatsJobCore
                 {
                     try
                     {
-                        Log("Updating statistics...");
+                        logger.Info("Updating statistics...");
                         var finish = Request<TaskStatus>("Update/UpdateFinished/");
                         if (finish != null)
                         {
-                            Log(string.Format("{0}: {1}", finish.message, finish.status));
+                            logger.Info("{0}: {1}", finish.message, finish.status);
                             statisticsDone = finish.status;
                         }
                     }
                     catch (Exception e)
                     {
                         statisticsFailures++;
-                        Log(e.Message);
+                        logger.Error(e.ToString);
                     }
                 }
 
 
             }
-            Log(string.Format("Run finished, {0} failures", failures));
+            logger.Info("Run finished, {0} failures", failures);
             return failures;
         }
 
@@ -146,7 +151,7 @@ namespace FWAStatsJobCore
         {
             var failures = 0;
 
-            Log(string.Format("Run started, connecting to {0}", FWAStatsURL));
+            logger.Info("Run started, connecting to {0}", FWAStatsURL);
             var index = Request<List<string>>("Update/PlayerBatch");
 
             if (index != null && index.Count > 0)
@@ -160,13 +165,13 @@ namespace FWAStatsJobCore
                 }
                 queue.CompleteAdding();
 
-                if (ServicePointManager.DefaultConnectionLimit < Environment.ProcessorCount)
-                    ServicePointManager.DefaultConnectionLimit = Environment.ProcessorCount;
+                if (ServicePointManager.DefaultConnectionLimit < ThreadCount)
+                    ServicePointManager.DefaultConnectionLimit = ThreadCount;
 
-                Log(string.Format("Processing {0} players with {1} threads", index.Count, Environment.ProcessorCount));
+                logger.Info("Processing {0} players with {1} threads", index.Count, ThreadCount);
 
                 var tasks = new List<Task<int>>();
-                for (var i = 0; i < Environment.ProcessorCount; i++)
+                for (var i = 0; i < ThreadCount; i++)
                 {
                     tasks.Add(Task.Run(() => PerformPlayerUpdate(queue)));
                     Thread.Sleep(2000);
@@ -177,7 +182,7 @@ namespace FWAStatsJobCore
                     failures += task.Result;
                 }
             }
-            Log(string.Format("Player update finished, {0} failures", failures));
+            logger.Info("Player update finished, {0} failures", failures);
             return failures;
         }
 
@@ -193,14 +198,14 @@ namespace FWAStatsJobCore
                         var status = Request<TaskStatus>(string.Format("Update/UpdateTask/{0}", task.id));
                         if (status != null)
                         {
-                            Log(string.Format("{0}: {1}: {2}: {3}", Thread.CurrentThread.ManagedThreadId, queue.Count, status.message, status.status));
+                            logger.Info("{0}: {1}: {2}: {3}", Thread.CurrentThread.ManagedThreadId, queue.Count, status.message, status.status);
                             if (!status.status)
                                 failures++;
                         }
                     }
                     catch (Exception e)
                     {
-                        Log(string.Format("{0}: {1}: {2} ({3})", Thread.CurrentThread.ManagedThreadId, task.clanName, e.Message, task.id));
+                        logger.Error("{0}: {1}: {2} ({3})", Thread.CurrentThread.ManagedThreadId, task.clanName, e.Message, task.id);
                         failures++;
                         if (failQueue != null)
                         {
@@ -226,14 +231,14 @@ namespace FWAStatsJobCore
                         var status = Request<TaskStatus>(string.Format("Update/UpdatePlayerTask/{0}", Uri.EscapeDataString(tag)));
                         if (status != null)
                         {
-                            Log(string.Format("{0}: {1}: {2}: {3}", Thread.CurrentThread.ManagedThreadId, queue.Count, status.message, status.status));
+                            logger.Info("{0}: {1}: {2}: {3}", Thread.CurrentThread.ManagedThreadId, queue.Count, status.message, status.status);
                             if (!status.status)
                                 failures++;
                         }
                     }
                     catch (Exception e)
                     {
-                        Log(string.Format("{0}: {1}: {2}", Thread.CurrentThread.ManagedThreadId, tag, e.Message));
+                        logger.Info("{0}: {1}: {2}", Thread.CurrentThread.ManagedThreadId, tag, e.Message);
                         failures++;
                     }
                 }
@@ -241,14 +246,10 @@ namespace FWAStatsJobCore
             return failures;
         }
 
-        public static void Log(string message)
-        {
-            Console.WriteLine(message);
-        }
-
         static int Main(string[] args)
         {
             bool readUrl = false;
+            bool readThreads = false;
             foreach(var arg in args )
             {
                 if (readUrl)
@@ -256,18 +257,27 @@ namespace FWAStatsJobCore
                     FWAStatsURL = arg;
                     readUrl = false;
                 }
+                if (readThreads)
+                {
+                    ThreadCount = int.Parse(arg);
+                    readThreads = false;
+                }
                 else if (arg == "-url")
                 {
                     readUrl = true;
                 }
+                else if (arg == "-threads")
+                {
+                    readThreads = true;
+                }
                 else
                 {
-                    Console.Error.WriteLine("Unknown parameter: {0}", arg);
+                    logger.Error("Unknown parameter: {0}", arg);
                 }
             }
             int clanErrors = UpdateClans();
             int playerErrors = UpdatePlayers();
-            Log(string.Format("{0} clan update errors, {1} player update errors", clanErrors, playerErrors));
+            logger.Info(string.Format("{0} clan update errors, {1} player update errors", clanErrors, playerErrors));
             return clanErrors + playerErrors;
         }
     }
