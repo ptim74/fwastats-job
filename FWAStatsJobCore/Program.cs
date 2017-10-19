@@ -257,7 +257,7 @@ namespace FWAStatsJobCore
                     FWAStatsURL = arg;
                     readUrl = false;
                 }
-                if (readThreads)
+                else if (readThreads)
                 {
                     ThreadCount = int.Parse(arg);
                     readThreads = false;
