@@ -201,16 +201,29 @@ namespace FWAStatsJobCore
                             logger.Info("{0}: {1}: {2}: {3}", Thread.CurrentThread.ManagedThreadId, queue.Count, status.message, status.status);
                             if (!status.status)
                                 failures++;
+                            if (status.message.Contains("API Error ProtocolError"))
+                            {
+                                logger.Error("ProtocolError detected, emptying queue");
+                                while (queue.TryTake(out UpdateTask task2)) { }
+                            }
                         }
                     }
                     catch (Exception e)
                     {
                         logger.Error("{0}: {1}: {2} ({3})", Thread.CurrentThread.ManagedThreadId, task.clanName, e.Message, task.id);
-                        failures++;
-                        if (failQueue != null)
+                        if (e.Message.Contains("API Error ProtocolError"))
                         {
-                            if (failQueue.TryAdd(task))
-                                failures--;
+                            logger.Error("ProtocolError detected, emptying queue");
+                            while (queue.TryTake(out UpdateTask task2)) { }
+                        }
+                        else
+                        {
+                            failures++;
+                            if (failQueue != null)
+                            {
+                                if (failQueue.TryAdd(task))
+                                    failures--;
+                            }
                         }
                     }
                 }
@@ -234,12 +247,25 @@ namespace FWAStatsJobCore
                             logger.Info("{0}: {1}: {2}: {3}", Thread.CurrentThread.ManagedThreadId, queue.Count, status.message, status.status);
                             if (!status.status)
                                 failures++;
+                            if (status.message.Contains("API Error ProtocolError"))
+                            {
+                                logger.Error("ProtocolError detected, emptying queue");
+                                while (queue.TryTake(out string tag2)) { }
+                            }
                         }
                     }
                     catch (Exception e)
                     {
                         logger.Info("{0}: {1}: {2}", Thread.CurrentThread.ManagedThreadId, tag, e.Message);
-                        failures++;
+                        if (e.Message.Contains("API Error ProtocolError"))
+                        {
+                            logger.Error("ProtocolError detected, emptying queue");
+                            while (queue.TryTake(out string tag2)) { }
+                        }
+                        else
+                        {
+                            failures++;
+                        }
                     }
                 }
             }
