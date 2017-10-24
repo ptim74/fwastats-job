@@ -65,7 +65,7 @@ namespace FWAStatsJobCore
                 logger.Info("Update clans started, connecting to {0}", FWAStatsURL);
                 try
                 {
-                    var data = Request("");
+                    var data = Request("home/ping");
                     indexFound = true;
                 }
                 catch (Exception e)
