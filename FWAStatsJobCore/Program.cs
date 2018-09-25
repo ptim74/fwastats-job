@@ -274,37 +274,46 @@ namespace FWAStatsJobCore
 
         static int Main(string[] args)
         {
-            bool readUrl = false;
-            bool readThreads = false;
-            foreach(var arg in args )
+            try
             {
-                if (readUrl)
+                bool readUrl = false;
+                bool readThreads = false;
+                foreach (var arg in args)
                 {
-                    FWAStatsURL = arg;
-                    readUrl = false;
+                    if (readUrl)
+                    {
+                        FWAStatsURL = arg;
+                        readUrl = false;
+                    }
+                    else if (readThreads)
+                    {
+                        ThreadCount = int.Parse(arg);
+                        readThreads = false;
+                    }
+                    else if (arg == "-url")
+                    {
+                        readUrl = true;
+                    }
+                    else if (arg == "-threads")
+                    {
+                        readThreads = true;
+                    }
+                    else
+                    {
+                        logger.Error("Unknown parameter: {0}", arg);
+                    }
                 }
-                else if (readThreads)
-                {
-                    ThreadCount = int.Parse(arg);
-                    readThreads = false;
-                }
-                else if (arg == "-url")
-                {
-                    readUrl = true;
-                }
-                else if (arg == "-threads")
-                {
-                    readThreads = true;
-                }
-                else
-                {
-                    logger.Error("Unknown parameter: {0}", arg);
-                }
+                int clanErrors = UpdateClans();
+                int playerErrors = UpdatePlayers();
+                logger.Info(string.Format("{0} clan update errors, {1} player update errors", clanErrors, playerErrors));
+                return clanErrors + playerErrors;
             }
-            int clanErrors = UpdateClans();
-            int playerErrors = UpdatePlayers();
-            logger.Info(string.Format("{0} clan update errors, {1} player update errors", clanErrors, playerErrors));
-            return clanErrors + playerErrors;
+            catch(Exception e)
+            {
+                logger.Error(e.ToString());
+            }
+
+            return -1;
         }
     }
 }
