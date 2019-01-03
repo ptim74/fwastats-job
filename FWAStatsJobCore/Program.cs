@@ -36,11 +36,16 @@ namespace FWAStatsJobCore
             var request = (HttpWebRequest)HttpWebRequest.Create(url);
             request.Timeout = 5 * 60 * 1000; // 5 min
             request.ContentType = "application/json; charset=utf-8";
-            var response = request.GetResponse();
-            using (var reader = new StreamReader(response.GetResponseStream()))
+            using (var response = request.GetResponse())
             {
-                var data = reader.ReadToEnd();
-                return data;
+                using (var responseStream = response.GetResponseStream())
+                {
+                    using (var reader = new StreamReader(responseStream))
+                    {
+                        var data = reader.ReadToEnd();
+                        return data;
+                    }
+                }
             }
         }
 
