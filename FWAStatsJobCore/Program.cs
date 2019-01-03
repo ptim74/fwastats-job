@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading;
@@ -13,6 +14,7 @@ namespace FWAStatsJobCore
 {
     public class Program
     {
+        public static HttpClient client = new HttpClient() { Timeout = new TimeSpan(0, 5, 0) };
         public static Logger logger = new LogFactory().GetLogger("Program");
 
         public static string FWAStatsURL { get; set; }
@@ -30,28 +32,15 @@ namespace FWAStatsJobCore
             return serializer;
         }
 
-        private static string Request(string page)
+        private async static Task<string> Request(string page)
         {
             var url = string.Format("{0}/{1}", FWAStatsURL, page);
-            var request = (HttpWebRequest)HttpWebRequest.Create(url);
-            request.Timeout = 5 * 60 * 1000; // 5 min
-            request.ContentType = "application/json; charset=utf-8";
-            using (var response = request.GetResponse())
-            {
-                using (var responseStream = response.GetResponseStream())
-                {
-                    using (var reader = new StreamReader(responseStream))
-                    {
-                        var data = reader.ReadToEnd();
-                        return data;
-                    }
-                }
-            }
+            return await client.GetStringAsync(url);
         }
 
-        private static T Request<T>(string page)
+        private async static Task<T> Request<T>(string page)
         {
-            var pageData = Request(page);
+            var pageData = await Request(page);
             var serializer = GetSerializer(typeof(T));
             using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(pageData)))
             {
@@ -59,7 +48,7 @@ namespace FWAStatsJobCore
             }
         }
 
-        public static int UpdateClans()
+        public static async Task<int> UpdateClans()
         {
             var failures = 0;
 
@@ -80,7 +69,7 @@ namespace FWAStatsJobCore
                 }
             }
 
-            var index = Request<UpdateIndexView>("Update/GetTasks");
+            var index = await Request<UpdateIndexView>("Update/GetTasks");
 
             if (index != null)
             {
@@ -122,7 +111,7 @@ namespace FWAStatsJobCore
                 if (failQueue.Count > 0)
                 {
                     logger.Info("Retrying {0} failed updates", failQueue.Count);
-                    failures += PerformClanUpdate(failQueue); //Cleanup in main thread
+                    failures += await PerformClanUpdate(failQueue); //Cleanup in main thread
                 }
 
                 bool statisticsDone = false;
@@ -132,7 +121,7 @@ namespace FWAStatsJobCore
                     try
                     {
                         logger.Info("Updating statistics...");
-                        var finish = Request<TaskStatus>("Update/UpdateFinished/");
+                        var finish = await Request<TaskStatus>("Update/UpdateFinished/");
                         if (finish != null)
                         {
                             logger.Info("{0}: {1}", finish.message, finish.status);
@@ -152,12 +141,12 @@ namespace FWAStatsJobCore
             return failures;
         }
 
-        public static int UpdatePlayers()
+        public static async Task<int> UpdatePlayers()
         {
             var failures = 0;
 
             logger.Info("Run started, connecting to {0}", FWAStatsURL);
-            var index = Request<List<string>>("Update/PlayerBatch");
+            var index = await Request<List<string>>("Update/PlayerBatch");
 
             if (index != null && index.Count > 0)
             {
@@ -191,7 +180,7 @@ namespace FWAStatsJobCore
             return failures;
         }
 
-        public static int PerformClanUpdate(BlockingCollection<UpdateTask> queue, BlockingCollection<UpdateTask> failQueue = null)
+        public static async Task<int> PerformClanUpdate(BlockingCollection<UpdateTask> queue, BlockingCollection<UpdateTask> failQueue = null)
         {
             int failures = 0;
             while (!queue.IsCompleted)
@@ -200,7 +189,7 @@ namespace FWAStatsJobCore
                 {
                     try
                     {
-                        var status = Request<TaskStatus>(string.Format("Update/UpdateTask/{0}", task.id));
+                        var status = await Request<TaskStatus>(string.Format("Update/UpdateTask/{0}", task.id));
                         if (status != null)
                         {
                             logger.Info("{0}: {1}: {2}: {3}", Thread.CurrentThread.ManagedThreadId, queue.Count, status.message, status.status);
@@ -236,7 +225,7 @@ namespace FWAStatsJobCore
             return failures;
         }
 
-        public static int PerformPlayerUpdate(BlockingCollection<string> queue)
+        public static async Task<int> PerformPlayerUpdate(BlockingCollection<string> queue)
         {
             int failures = 0;
             while (!queue.IsCompleted)
@@ -246,7 +235,7 @@ namespace FWAStatsJobCore
                 {
                     try
                     {
-                        var status = Request<TaskStatus>(string.Format("Update/UpdatePlayerTask/{0}", Uri.EscapeDataString(tag)));
+                        var status = await Request<TaskStatus>(string.Format("Update/UpdatePlayerTask/{0}", Uri.EscapeDataString(tag)));
                         if (status != null)
                         {
                             logger.Info("{0}: {1}: {2}: {3}", Thread.CurrentThread.ManagedThreadId, queue.Count, status.message, status.status);
@@ -277,7 +266,7 @@ namespace FWAStatsJobCore
             return failures;
         }
 
-        static int Main(string[] args)
+        static async Task<int> MainAsync(string[] args)
         {
             try
             {
@@ -308,8 +297,8 @@ namespace FWAStatsJobCore
                         logger.Error("Unknown parameter: {0}", arg);
                     }
                 }
-                int clanErrors = UpdateClans();
-                int playerErrors = UpdatePlayers();
+                int clanErrors = await UpdateClans();
+                int playerErrors = await UpdatePlayers();
                 logger.Info(string.Format("{0} clan update errors, {1} player update errors", clanErrors, playerErrors));
                 return clanErrors + playerErrors;
             }
@@ -319,6 +308,13 @@ namespace FWAStatsJobCore
             }
 
             return -1;
+        }
+
+        static int Main(string[] args)
+        {
+            var t = Task.Run(() => MainAsync(args));
+            t.Wait();
+            return t.Result;
         }
     }
 }
