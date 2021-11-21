@@ -14,7 +14,7 @@
 - name: selfContained
   default: 'false'
 - name: artifactName
-  default: 'FWAStatsJobCore'
+  default: 'FWAStatsJob'
 - name: destinationFolder
   default: '~/fwastatsjob'
 
