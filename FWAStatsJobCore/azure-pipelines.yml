@@ -38,7 +38,7 @@ stages:
   jobs:
   - deployment: 'Deploy_Job'
     environment:
-      name: FwaStats
+      name: FwaStatsJob
       resourceType: VirtualMachine
     workspace:
       clean: true
