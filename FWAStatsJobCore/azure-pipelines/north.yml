@@ -1,0 +1,9 @@
+﻿trigger: master
+
+extends:
+  template: template.yml
+  parameters:
+    environmentName: FwaStats-North
+    architecture: $(Architecture)
+    selfContained: $(SelfContained)
+    destinationFolder: $(DestinationFolder)
