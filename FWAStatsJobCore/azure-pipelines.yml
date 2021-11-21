@@ -25,10 +25,9 @@ stages:
     - task: DotNetCoreCLI@2
       displayName: 'dotnet publish'
       inputs:
-        command: publish
-        publishWebProjects: True
+        command: 'publish'
+        publishWebProjects: false
         arguments: '--configuration $(BuildConfiguration) -r $(BuildArchitecture) --self-contained true --output $(Build.ArtifactStagingDirectory)'
-        zipAfterPublish: True
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)' 
