@@ -7,7 +7,7 @@
   default: ubuntu-latest
 - name: dotnetVersion
   default: '6.0.x'
-- name: confugiration
+- name: configuration
   default: 'Release'
 - name: architecture
   default: 'linux-x86'
@@ -38,13 +38,13 @@ stages:
       inputs:
         command: 'build'
         projects: '**/*.csproj'
-        arguments: '--configuration ${{parameters.confugiration}} -r ${{parameters.architecture}} --self-contained ${{parameters.selfContained}}'
+        arguments: '--configuration ${{parameters.configuration}} -r ${{parameters.architecture}} --self-contained ${{parameters.selfContained}}'
     - task: DotNetCoreCLI@2
       displayName: 'dotnet publish'
       inputs:
         command: 'publish'
         publishWebProjects: false
-        arguments: '--configuration ${{parameters.confugiration}} -r ${{parameters.architecture}} --self-contained ${{parameters.selfContained}} --output $(Build.ArtifactStagingDirectory)'
+        arguments: '--configuration ${{parameters.configuration}} -r ${{parameters.architecture}} --self-contained ${{parameters.selfContained}} --output $(Build.ArtifactStagingDirectory)'
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)' 
