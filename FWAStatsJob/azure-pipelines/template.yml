@@ -6,7 +6,7 @@
 - name: vmImage
   default: ubuntu-latest
 - name: dotnetVersion
-  default: '7.0.x'
+  default: '8.0.x'
 - name: configuration
   default: 'Release'
 - name: architecture
