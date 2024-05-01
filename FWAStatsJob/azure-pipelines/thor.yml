@@ -1,10 +1,13 @@
-﻿trigger: none
-pr: none
+﻿trigger: 
+- master
+
+variables:
+- group: FwaStatsJob-Thor
 
 extends:
   template: template.yml
   parameters:
-    environmentName: FwaStats-Test
+    environmentName: $(EnvironmentName)
     architecture: $(Architecture)
     selfContained: $(SelfContained)
     destinationFolder: $(DestinationFolder)
