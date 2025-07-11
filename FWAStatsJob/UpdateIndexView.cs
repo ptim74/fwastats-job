@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
-namespace FWAStatsJobCore
+namespace FWAStatsJobCore;
+
+public class UpdateIndexView
 {
-    public class UpdateIndexView
-    {
-        public List<string> errors { get; set; }
-        public List<UpdateTask> tasks { get; set; }
-    }
+    public List<string> errors { get; set; }
+    public List<UpdateTask> tasks { get; set; }
 }
